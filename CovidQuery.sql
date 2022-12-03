@@ -1,43 +1,98 @@
--- Looking at total Cases, Deaths and fuuly-Vaccinated and boosted given people for each country
-with total_data_table as
-(Select c.location, MAX(v.population) as population,
-	SUM(new_cases) as cases,
-	SUM(cast(new_deaths as numeric)) as deaths,
-	MAX(cast(people_fully_vaccinated as numeric)) as fully_vaccinations,
-	MAX(cast(total_boosters as numeric)) as booster_given
-From dbo.CovidDeaths c
-Join dbo.CovidVaccinations v
-On (c.date = v.date) and (c.location = v.location)
-Where c.continent is not null
-	and v.continent is not null
-Group By c.location)
+-- Looking at the CovidDeaths table
+Select *
+From dbo.CovidDeaths
+Where continent is not NULL 
+order by 3, 4
 
-Select location, population, cases, deaths, fully_vaccinations, booster_given,
-	cases/population as case_percent,
-	deaths/population as deaths_percent,
-	fully_vaccinations/population as vaccination_percent,
-	booster_given/population as booster_percent
-From total_data_table
+-- Looking at the CovidVaccination table
+Select location, MAX(cast(people_vaccinated as numeric))
+From dbo.CovidVaccinations
+Where continent is not NULL
+Group By location
+Order By 1
 
--- Creating Total-Data view for later visualization
-Create View total_data as
 
-with total_data_table as
-(Select c.location, MAX(v.population) as population,
-	SUM(new_cases) as cases,
-	SUM(cast(new_deaths as numeric)) as deaths,
-	MAX(cast(people_fully_vaccinated as numeric)) as fully_vaccinations,
-	MAX(cast(total_boosters as numeric)) as booster_given
-From dbo.CovidDeaths c
-Join dbo.CovidVaccinations v
-On (c.date = v.date) and (c.location = v.location)
-Where c.continent is not null
-	and v.continent is not null
-Group By c.location)
+-- total cases vs. total deaths
+-- Shows likelihood of dying if you contract covid in your country
+Select location, Max(total_deaths)/Max(total_cases) as DeathRate
+From dbo.CovidDeaths
+Where continent is not NULL
+Group By location
+Order By 1
 
-Select location, population, cases, deaths, fully_vaccinations, booster_given,
-	cases/population as case_percent,
-	deaths/population as deaths_percent,
-	fully_vaccinations/population as vaccination_percent,
-	booster_given/population as booster_percent
-From total_data_table
+-- total cases vs. population
+-- Shows what percentage of population infected with Covid in each country
+Select location, max(population) as population, Max(total_cases) as total_cases,  Max(total_cases)/Max(population) as InfectionRate
+From dbo.CovidDeaths
+Where continent is not NULL
+Group By location
+Order By 1
+
+-- Shows the status of vacciantion in each country: total_vacciantion, percentage of fully vaccinated people, 
+Select location, max(population) as population,
+		Max(cast(total_vaccinations as numeric)) as total_vaccination,
+		Max(cast(people_fully_vaccinated as numeric))/max(population) as fully_vaccinated_rate,
+		Max(cast(total_boosters as numeric))/max(population) as boosters_rate
+From dbo.CovidVaccinations
+Where continent is not NULL
+Group By location
+Order By 1
+
+-- Covid Vaccination status of each CONTINENT
+Select continent, max(population) as population,
+		Max(cast(total_vaccinations as numeric)) as total_vaccination,
+		Max(cast(people_fully_vaccinated as numeric))/max(population) as fully_vaccinated_rate,
+		Max(cast(total_boosters as numeric))/max(population) as boosters_rate
+From dbo.CovidVaccinations
+Where continent is not NULL
+Group By continent
+Order By 1
+
+-- total cases vs. population & total cases vs. total deaths
+-- Shows what percentage of population infected by Covid and shows Liklihood of dying if contract in you CONTINENT 
+Select continent, Max(population) as population, 
+		Max(total_cases) as total_cases,
+		Max(total_deaths) as total_deaths,
+		Max(total_cases)/Max(population) as InfectionRate,
+		Max(total_deaths)/Max(total_cases) as DeathRate
+From dbo.CovidDeaths
+Where continent is not NULL
+Group By continent
+Order By continent
+
+-- CREATE VIEW FOR LATER VISUALIZATIONS -> for each CONTINENT
+Create View ContinentCovidStatus as
+
+Select d.continent, Max(d.population) as population, 
+		Max(total_cases) as total_cases,
+		Max(total_deaths) as total_deaths,
+		Max(total_cases)/Max(d.population) as InfectionRate,
+		Max(total_deaths)/Max(total_cases) as DeathRate,
+		Max(cast(total_vaccinations as numeric)) as total_vaccination,
+		Max(cast(people_fully_vaccinated as numeric))/max(d.population) as fully_vaccinated_rate,
+		Max(cast(total_boosters as numeric))/max(d.population) as boosters_rate
+
+From dbo.CovidDeaths d
+join  dbo.CovidVaccinations v
+on d.location=v.location and d.date=v.date
+Where d.continent is not null
+Group By d.continent
+
+
+-- CREATE VIEW FOR LATER VISUALIZATIONS -> for each COUNTRY
+Create View LocationCovidStatus as
+
+Select d.location, Max(d.population) as population, 
+		Max(total_cases) as total_cases,
+		Max(total_deaths) as total_deaths,
+		Max(total_cases)/Max(d.population) as InfectionRate,
+		Max(total_deaths)/Max(total_cases) as DeathRate,
+		Max(cast(total_vaccinations as numeric)) as total_vaccination,
+		Max(cast(people_fully_vaccinated as numeric))/max(d.population) as fully_vaccinated_rate,
+		Max(cast(total_boosters as numeric))/max(d.population) as boosters_rate
+
+From dbo.CovidDeaths d
+join  dbo.CovidVaccinations v
+on d.location=v.location and d.date=v.date
+Where d.location is not null
+Group By d.location
